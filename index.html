@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>სოციალური ბლოგი</title>
+    <style>
+        body { 
+            font-family: Arial, Helvetica, sans-serif; 
+            background-color: #f3f2ef; 
+            color: #333; 
+            margin: 0; 
+            padding-top: 60px; 
+        }
+        
+        header { 
+            background: white; 
+            border-bottom: 1px solid #ddd; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            height: 55px; 
+            display: flex; 
+            align-items: center; 
+            z-index: 100; 
+        }
+
+        .header-content {
+            max-width: 1100px;
+            margin: 0 auto;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+
+        .header-content h1 {
+            color: #0a66c2;
+            font-size: 22px;
+            margin: 0;
+            cursor: pointer;
+        }
+
+        .layout { 
+            max-width: 1100px; 
+            margin: 20px auto; 
+            display: flex; 
+            gap: 20px; 
+            padding: 0 20px;
+        }
+
+        .main-col { flex: 1; }
+        .side-col { width: 300px; display: flex; flex-direction: column; gap: 15px; }
+        
+        .box { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            border: 1px solid #ddd; 
+            margin-bottom: 15px; 
+        }
+
+        .box h3 { margin-top: 0; font-size: 16px; margin-bottom: 15px; }
+
+        input[type="text"], input[type="email"], input[type="password"], textarea { 
+            display: block; 
+            width: 100%; 
+            margin-bottom: 10px; 
+            padding: 10px; 
+            box-sizing: border-box; 
+            border: 1px solid #ccc; 
+            border-radius: 5px; 
+        }
+
+        button { 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 14px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            border: none;
+        }
+
+        .btn-blue { background: #0a66c2; color: white; }
+        .btn-outline { background: transparent; color: #0a66c2; border: 1px solid #0a66c2; }
+        .btn-text { background: transparent; color: #555; padding: 5px 10px; }
+        .btn-text:hover { background: #eee; }
+
+        .post-title { margin: 0 0 5px 0; font-size: 17px; }
+        .post-body { font-size: 14px; line-height: 1.5; margin-bottom: 10px; }
+        .post-body img { max-width: 100%; border-radius: 5px; } /* Markdown სურათებისთვის */
+        
+        .tag-style { 
+            display: inline-block; 
+            background: #eef3f8; 
+            color: #0a66c2;
+            padding: 5px 10px; 
+            border-radius: 15px; 
+            font-size: 12px; 
+            margin: 2px; 
+            cursor: pointer; 
+        }
+        
+        .hide { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-content">
+            <h1 onclick="loadPosts('all')">MyBlog</h1>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="user-display" style="font-size: 14px; color: #555;">სტუმარი</span>
+                <button id="btn-logout" class="btn-outline hide" onclick="logout()">გასვლა</button>
+            </div>
+        </div>
+    </header>
+
+    <div class="layout">
+        <div class="main-col">
+            
+            <div id="reg-box" class="box">
+                <h3>რეგისტრაცია</h3>
+                <input type="text" id="reg-user" placeholder="მომხმარებლის სახელი" autocapitalize="off" autocorrect="off" autocomplete="username">
+                <input type="email" id="reg-email" placeholder="ელ. ფოსტა">
+                <input type="password" id="reg-pass" placeholder="პაროლი">
+                <button class="btn-blue" style="width: 100%;" onclick="register()">დარეგისტრირება</button>
+            </div>
+
+            <div id="login-box" class="box">
+                <h3>ავტორიზაცია</h3>
+                <input type="text" id="log-user" placeholder="მომხმარებლის სახელი" autocapitalize="off" autocorrect="off" autocomplete="username">
+                <input type="password" id="log-pass" placeholder="პაროლი">
+                <button class="btn-blue" style="width: 100%;" onclick="login()">შესვლა</button>
+            </div>
+
+            <div id="post-box" class="box hide">
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <input type="text" id="new-title" placeholder="პოსტის სათაური..." style="border: none; border-bottom: 1px solid #eee; border-radius: 0;">
+                        <textarea id="new-body" rows="3" placeholder="რაზე გსურთ საუბარი? (მხარდაჭერილია Markdown)" style="border: none;"></textarea>
+                        
+                        <input type="text" id="new-tags" placeholder="თეგები (გამოყავით მძიმით, მაგ: python, web)" style="border: none; border-top: 1px solid #eee; border-radius: 0; padding-top: 10px; margin-top: 5px;">
+                        <input type="text" id="new-cover" placeholder="Cover სურათის URL (არასავალდებულო)" style="border: none; border-top: 1px solid #eee; border-radius: 0; padding-top: 10px; margin-top: 5px; font-size: 12px;">
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+                            <label style="font-size: 13px; color: #555;"><input type="checkbox" id="new-published" checked> გამოქვეყნება (საჯარო)</label>
+                            <button class="btn-blue" onclick="addPost()">გამოქვეყნება</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="edit-modal" class="hide" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); z-index: 200; display: flex; align-items: center; justify-content: center;">
+                <div class="box" style="width: 500px; max-width: 90%; max-height: 85vh; overflow-y: auto;">
+                    <h3>პოსტის რედაქტირება</h3>
+                    <input type="text" id="edit-title" placeholder="პოსტის სათაური...">
+                    <textarea id="edit-body" rows="6" placeholder="ტექსტი (მხარდაჭერილია Markdown)"></textarea>
+                    <input type="text" id="edit-tags" placeholder="თეგები (გამოყავით მძიმით)">
+                    <input type="text" id="edit-cover" placeholder="Cover სურათის URL (არასავალდებულო)">
+                    <label style="font-size: 13px; color: #555; display: block; margin-bottom: 10px;"><input type="checkbox" id="edit-published"> გამოქვეყნება (საჯარო)</label>
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button class="btn-outline" onclick="closeEditModal()">გაუქმება</button>
+                        <button class="btn-blue" onclick="saveEditPost()">შენახვა</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="detail-modal" class="hide" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); z-index: 200; display: flex; align-items: center; justify-content: center;">
+                <div class="box" style="width: 620px; max-width: 92%; max-height: 85vh; overflow-y: auto;">
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: -5px;">
+                        <button class="btn-text" onclick="closeDetailModal()">✕ დახურვა</button>
+                    </div>
+                    <img id="detail-cover" style="width: 100%; border-radius: 8px; margin-bottom: 10px; display: none;">
+                    <h2 id="detail-title" style="margin: 0 0 5px 0;"></h2>
+                    <p id="detail-meta" style="font-size: 12px; color: #777; margin: 0 0 15px 0;"></p>
+                    <div id="detail-body" class="post-body"></div>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="display: flex; gap: 10px;">
+                    <button id="nav-all-btn" class="btn-outline" onclick="loadPosts('all')">მთავარი</button>
+                    <button id="my-feed-btn" class="btn-outline hide" onclick="loadPosts('feed')">ჩემი ფიდი</button>
+                    <button id="my-tag-feed-btn" class="btn-outline hide" onclick="loadPosts('tag-feed')">გამოწერილი თეგები</button>
+                    <button id="my-posts-btn" class="btn-outline hide" onclick="loadPosts('mine')">ჩემი პოსტები</button>
+                    <button id="my-bookmarks-btn" class="btn-outline hide" onclick="loadPosts('bookmarks')">შენახულები</button>
+                </div>
+                <h2 id="feed-header" style="font-size: 15px; margin: 0; color: #555;">საჯარო პოსტები</h2>
+            </div>
+            
+            <div id="posts-area">
+                <p>იტვირთება...</p>
+            </div>
+        </div>
+
+        <div class="side-col">
+            <div class="box">
+                <h3>🔥 ტრენდული (7 დღე)</h3>
+                <div id="trend-area">
+                    <p style="font-size: 13px; color: #777;">იტვირთება...</p>
+                </div>
+            </div>
+
+            <div class="box">
+                <h3>🏷️ თეგები</h3>
+                <div id="tags-area">
+                    <p style="font-size: 13px; color: #777;">იტვირთება...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const api = 'http://127.0.0.1:5000/api';
+        const reqOpts = {
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include' 
+        };
+
+        let loggedInUser = null; // ვინახავთ მიმდინარე იუზერს
+        let postsCache = {};     // slug -> post ობიექტი (რედაქტირებისთვის)
+        let tagsCache = {};      // slug -> name (თეგის დასათაურებლად onclick-ის გარეშე)
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        // ავტორიზაცია
+        async function login() {
+            let u = document.getElementById('log-user').value.trim();
+            let p = document.getElementById('log-pass').value;
+            
+            let res = await fetch(`${api}/login`, { ...reqOpts, method: 'POST', body: JSON.stringify({ username: u, password: p }) });
+            if (res.ok) {
+                location.reload();
+            } else {
+                let d = await res.json().catch(() => ({}));
+                alert(d.error || 'მონაცემები არასწორია');
+            }
+        }
+
+        async function register() {
+            let u = document.getElementById('reg-user').value.trim();
+            let e = document.getElementById('reg-email').value.trim();
+            let p = document.getElementById('reg-pass').value;
+
+            let res = await fetch(`${api}/register`, { ...reqOpts, method: 'POST', body: JSON.stringify({ username: u, email: e, password: p }) });
+            if (res.ok) {
+                alert('რეგისტრაცია წარმატებულია. ახლა შეგიძლიათ გაიაროთ ავტორიზაცია.');
+                document.getElementById('reg-user').value = '';
+                document.getElementById('reg-email').value = '';
+                document.getElementById('reg-pass').value = '';
+            } else {
+                let d = await res.json();
+                alert(d.error || 'შეცდომა რეგისტრაციისას');
+            }
+        }
+
+        async function logout() {
+            await fetch(`${api}/logout`, { ...reqOpts, method: 'POST' });
+            location.reload(); 
+        }
+
+        async function checkUser() {
+            try {
+                let res = await fetch(`${api}/me`, reqOpts);
+                if (res.ok) {
+                    let d = await res.json();
+                    loggedInUser = d.username;
+                    document.getElementById('login-box').classList.add('hide');
+                    document.getElementById('reg-box').classList.add('hide');
+                    document.getElementById('post-box').classList.remove('hide');
+                    document.getElementById('btn-logout').classList.remove('hide');
+                    document.getElementById('my-feed-btn').classList.remove('hide');
+                    document.getElementById('my-tag-feed-btn').classList.remove('hide');
+                    document.getElementById('my-posts-btn').classList.remove('hide');
+                    document.getElementById('my-bookmarks-btn').classList.remove('hide'); 
+                    document.getElementById('user-display').innerText = d.username;
+                }
+                // res.status === 401 უბრალოდ ნიშნავს, რომ არავინაა შესული — ეს ნორმალურია, არა შეცდომა
+            } catch (err) {
+                // ქსელური შეცდომა (სერვერი გამორთულია/მიუწვდომელია) — ამის გამო init()-ის დანარჩენი
+                // ნაბიჯები (loadPosts/getTrending/getTags) აღარ უნდა შეჩერდეს
+                console.error('checkUser failed — ვერ დავუკავშირდით სერვერს', api, err);
+            }
+        }
+
+        // ნავიგაციის ღილაკებზე ამჟამად გახსნილი ხედის მონიშვნა — აქტიურ ღილაკს
+        // ავსებთ ფერით (btn-blue), დანარჩენებს ვუბრუნებთ outline-ს
+        const NAV_BTN_IDS = {
+            all: 'nav-all-btn',
+            feed: 'my-feed-btn',
+            'tag-feed': 'my-tag-feed-btn',
+            mine: 'my-posts-btn',
+            bookmarks: 'my-bookmarks-btn'
+        };
+
+        function setActiveNav(type) {
+            Object.entries(NAV_BTN_IDS).forEach(([t, id]) => {
+                let btn = document.getElementById(id);
+                if (!btn) return;
+                if (t === type) {
+                    btn.classList.remove('btn-outline');
+                    btn.classList.add('btn-blue');
+                } else {
+                    btn.classList.remove('btn-blue');
+                    btn.classList.add('btn-outline');
+                }
+            });
+        }
+
+        // პოსტები
+        async function loadPosts(type = 'all') {
+            let area = document.getElementById('posts-area');
+            area.innerHTML = '<p>იტვირთება...</p>'; 
+            setActiveNav(type);
+            
+            // 'mine' — ჩემი ყველა პოსტი (დრაფტების ჩათვლით), /api/users/<username>/posts
+            // ავტორისთვის დრაფტებსაც აბრუნებს, სხვისთვის კი მხოლოდ გამოქვეყნებულებს
+            let url = (type === 'feed') ? `${api}/feed`
+                : (type === 'tag-feed') ? `${api}/tags/feed`
+                : (type === 'bookmarks') ? `${api}/bookmarks`
+                : (type === 'mine') ? `${api}/users/${loggedInUser}/posts`
+                : `${api}/posts`;
+            document.getElementById('feed-header').innerText = (type === 'feed') ? 'ჩემი გამოწერები'
+                : (type === 'tag-feed') ? 'გამოწერილი თეგები'
+                : (type === 'bookmarks') ? 'ჩემი შენახულები'
+                : 'საჯარო პოსტები';
+
+            let res;
+            try {
+                res = await fetch(url, reqOpts);
+            } catch (err) {
+                console.error('loadPosts failed — ვერ დავუკავშირდით სერვერს', url, err);
+                area.innerHTML = `<div class="box" style="color:#c0392b;">სერვერთან კავშირი ვერ მოხერხდა (${api}). დარწმუნდით, რომ Flask სერვერი გაშვებულია.</div>`;
+                return;
+            }
+            if (!res.ok) {
+                area.innerHTML = '<div class="box">სერვერთან კავშირი ვერ მოხერხდა. ავტორიზებული ხართ?</div>';
+                return;
+            }
+            let d = await res.json();
+            let postList = d.posts || d; // /api/posts აბრუნებს d.posts, ხოლო დანარჩენები — პირდაპირ მასივს
+            
+            if (postList.length === 0) {
+                area.innerHTML = (type === 'feed')
+                    ? '<div class="box">თქვენი ფიდი ცარიელია — ის აჩვენებს მხოლოდ იმ ავტორების პოსტებს, ვისაც მისდევთ (Follow). გამოიწერეთ ვინმე პროფილზე ან პოსტის ქვეშ, რომ აქ პოსტები გამოჩნდეს.</div>'
+                    : (type === 'tag-feed')
+                        ? '<div class="box">არცერთი თეგი არ გაგიწერიათ, ან გამოწერილ თეგებზე პოსტები ჯერ არ არის. გამოიწერეთ თეგი გვერდით პანელში, რომ აქ პოსტები გამოჩნდეს.</div>'
+                        : (type === 'mine')
+                            ? '<div class="box">ჯერ არ დაგიწერიათ პოსტი.</div>'
+                            : '<div class="box">პოსტები ჯერ არ არის.</div>';
+                return;
+            }
+
+            area.innerHTML = '';
+            postList.forEach(p => area.appendChild(renderPostCard(p)));
+        }
+
+        // ერთი საერთო ფუნქცია პოსტის ბარათის ასაშენებლად — გამოიყენება loadPosts()-შიც და
+        // loadByTag()-შიც, რომ ორივეგან ერთნაირად გამოჩნდეს cover ფოტო, ღილაკები და ა.შ.
+        function renderPostCard(p) {
+            postsCache[p.slug] = p;
+
+            let div = document.createElement('div');
+            div.className = 'box';
+
+            // ვამოწმებთ არის თუ არა ავტორი მიმდინარე იუზერი, რომ წაშლისა და რედაქტირების ღილაკები ვაჩვენოთ
+            let ownerBtnsHtml = (loggedInUser === p.author.username) 
+                ? `<button class="btn-text" onclick="startEditPost('${p.slug}')">✏️ რედაქტირება</button>
+                   <button class="btn-text" style="color: red; padding: 0;" onclick="deletePost('${p.slug}')">🗑️ წაშლა</button>` 
+                : '';
+
+            // ფოლოუ ღილაკი სხვების პოსტებზე — რეალურ სტატუსზე დაყრდნობით ვხატავთ, არა ყოველთვის "+ Follow"
+            let followBtnHtml = '';
+            if (loggedInUser && loggedInUser !== p.author.username) {
+                let followed = !!p.author.is_following;
+                followBtnHtml = followed
+                    ? `<button class="btn-text" style="font-size: 11px; padding: 2px 5px; margin-left: 5px; border: 1px solid green; color: green;" onclick="followUser(this, '${p.author.username}')">✔ გამოწერილია</button>`
+                    : `<button class="btn-text" style="font-size: 11px; padding: 2px 5px; margin-left: 5px; border: 1px solid #ccc;" onclick="followUser(this, '${p.author.username}')">+ Follow</button>`;
+            }
+
+            let coverHtml = p.cover_image_url ? `<img src="${escapeHtml(p.cover_image_url)}" style="width: 100%; border-radius: 8px; margin-bottom: 10px;">` : '';
+
+            // დრაფტის ბეიჯი — რომ ავტორმა ცხადად დაინახოს, რომელი პოსტი ჯერ არაა საჯარო
+            let draftBadgeHtml = !p.is_published
+                ? `<span style="font-size: 11px; background: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 10px; margin-left: 6px;">დრაფტი</span>`
+                : '';
+
+            div.innerHTML = `
+                <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center;">
+                    <img src="${escapeHtml(p.author.avatar_url)}" width="40" height="40" style="border-radius: 50%; background: #eee;">
+                    <div style="flex: 1;">
+                        <strong style="font-size: 14px; cursor: pointer; color: #0a66c2; text-decoration: underline;" onclick="showUserStats('${p.author.username}')" title="სტატისტიკის ნახვა">${escapeHtml(p.author.username)}</strong> ${followBtnHtml}${draftBadgeHtml}
+                        <div style="font-size: 12px; color: #777;">${p.reading_time} წთ საკითხავი • ${new Date(p.created_at).toLocaleDateString()}</div>
+                    </div>
+                    <div>${ownerBtnsHtml}</div>
+                </div>
+                ${coverHtml}
+                <h3 class="post-title" style="cursor: pointer;" onclick="openPostDetail('${p.slug}')" title="დეტალურად ნახვა">${escapeHtml(p.title)}</h3>
+                
+                <div class="post-body">${p.body_html}</div>
+                
+                <div style="font-size: 12px; color: #777; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-bottom: 10px;">
+                    <span id="views-cnt-${p.slug}">👁 ${p.views}</span> • <span id="like-cnt-${p.slug}">👍 ${p.likes_count}</span> • ${p.comments_count} კომენტარი
+                </div>
+                
+                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <button class="btn-text" onclick="likePost('${p.slug}')">👍 მოწონება</button>
+                    <button class="btn-text" onclick="showComments('${p.slug}')">💬 კომენტარი</button>
+                    <button class="btn-text" onclick="bookmarkPost('${p.slug}')">🔖 შენახვა</button>
+                </div>
+
+                <div id="com-sec-${p.slug}" class="hide" style="margin-top: 15px;">
+                    <div style="display: flex; gap: 5px; margin-bottom: 15px;">
+                        <input type="text" id="com-val-${p.slug}" placeholder="დაწერე კომენტარი..." style="margin: 0;">
+                        <button class="btn-blue" onclick="sendComment('${p.slug}')">გაგზავნა</button>
+                    </div>
+                    <div id="com-list-${p.slug}"></div>
+                </div>
+            `;
+            return div;
+        }
+
+        async function addPost() {
+            let t = document.getElementById('new-title').value;
+            let b = document.getElementById('new-body').value;
+            let cover = document.getElementById('new-cover').value;
+            let isPub = document.getElementById('new-published').checked;
+            let tagsRaw = document.getElementById('new-tags').value; 
+
+            if (!t || !b) return alert("შეავსეთ სათაური და ტექსტი");
+
+            let tagsArray = tagsRaw ? tagsRaw.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+
+            let res = await fetch(`${api}/posts`, {
+                ...reqOpts,
+                method: 'POST',
+                body: JSON.stringify({ 
+                    title: t, 
+                    body: b, 
+                    cover_image_url: cover,
+                    is_published: isPub, 
+                    tags: tagsArray 
+                })
+            });
+
+            if (res.ok) {
+                document.getElementById('new-title').value = '';
+                document.getElementById('new-body').value = '';
+                document.getElementById('new-cover').value = '';
+                document.getElementById('new-tags').value = ''; 
+                loadPosts('all'); 
+                getTags(); 
+            } else {
+                alert('პოსტის დამატება ვერ მოხერხდა. გაიარეთ ავტორიზაცია.');
+            }
+        }
+
+        async function deletePost(slug) {
+            if (!confirm('ნამდვილად გსურთ პოსტის წაშლა?')) return;
+            let res = await fetch(`${api}/posts/${slug}`, { ...reqOpts, method: 'DELETE' });
+            if (res.ok) {
+                loadPosts('all');
+                getTrending();
+            } else {
+                alert('შეცდომა პოსტის წაშლისას');
+            }
+        }
+
+        // პოსტის რედაქტირება (PUT)
+        let editingSlug = null;
+
+        function startEditPost(slug) {
+            let p = postsCache[slug];
+            if (!p) return;
+            editingSlug = slug;
+            document.getElementById('edit-title').value = p.title;
+            document.getElementById('edit-body').value = p.body || '';
+            document.getElementById('edit-tags').value = (p.tags || []).join(', ');
+            document.getElementById('edit-cover').value = p.cover_image_url || '';
+            document.getElementById('edit-published').checked = !!p.is_published;
+            document.getElementById('edit-modal').classList.remove('hide');
+        }
+
+        function closeEditModal() {
+            editingSlug = null;
+            document.getElementById('edit-modal').classList.add('hide');
+        }
+
+        async function saveEditPost() {
+            if (!editingSlug) return;
+
+            let t = document.getElementById('edit-title').value;
+            let b = document.getElementById('edit-body').value;
+            let cover = document.getElementById('edit-cover').value;
+            let isPub = document.getElementById('edit-published').checked;
+            let tagsRaw = document.getElementById('edit-tags').value;
+
+            if (!t || !b) return alert('შეავსეთ სათაური და ტექსტი');
+
+            let tagsArray = tagsRaw ? tagsRaw.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+
+            let res = await fetch(`${api}/posts/${editingSlug}`, {
+                ...reqOpts,
+                method: 'PUT',
+                body: JSON.stringify({
+                    title: t,
+                    body: b,
+                    cover_image_url: cover,
+                    is_published: isPub,
+                    tags: tagsArray
+                })
+            });
+
+            if (res.ok) {
+                closeEditModal();
+                loadPosts('all');
+                getTags();
+            } else {
+                alert('პოსტის განახლება ვერ მოხერხდა.');
+            }
+        }
+
+        // პოსტის დეტალური ნახვა (GET /api/posts/<slug>) — ეს request ზრდის views-ს სერვერზე
+        async function openPostDetail(slug) {
+            let res = await fetch(`${api}/posts/${slug}`, reqOpts);
+            if (!res.ok) {
+                alert('პოსტი ვერ მოიძებნა ან უკვე წაშლილია.');
+                return;
+            }
+            let p = await res.json();
+            postsCache[p.slug] = p; // ქეშში განახლებული views ინახება
+
+            // თუ ბარათი ჯერ კიდევ ეკრანზეა, იქაც ვაახლებთ ნახვების რაოდენობას
+            let viewsEl = document.getElementById(`views-cnt-${p.slug}`);
+            if (viewsEl) viewsEl.innerText = `👁 ${p.views}`;
+
+            document.getElementById('detail-title').innerText = p.title;
+            document.getElementById('detail-meta').innerText =
+                `${p.author.username} • ${p.reading_time} წთ საკითხავი • 👁 ${p.views} ნახვა • 👍 ${p.likes_count} • ${new Date(p.created_at).toLocaleDateString()}`;
+
+            let coverEl = document.getElementById('detail-cover');
+            if (p.cover_image_url) {
+                coverEl.src = p.cover_image_url;
+                coverEl.style.display = 'block';
+            } else {
+                coverEl.style.display = 'none';
+            }
+
+            document.getElementById('detail-body').innerHTML = p.body_html;
+            document.getElementById('detail-modal').classList.remove('hide');
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detail-modal').classList.add('hide');
+        }
+
+        // ინტერაქციები
+        async function likePost(slug) {
+            let res = await fetch(`${api}/posts/${slug}/like`, { ...reqOpts, method: 'POST' });
+            if (res.ok) {
+                let d = await res.json();
+                document.getElementById(`like-cnt-${slug}`).innerText = `👍 ${d.likes_count}`;
+                getTrending(); // ვაახლებთ ტრენდულებს
+            } else { alert('ჯერ უნდა გაიაროთ ავტორიზაცია'); }
+        }
+
+        async function bookmarkPost(slug) {
+            let res = await fetch(`${api}/posts/${slug}/bookmark`, { ...reqOpts, method: 'POST' });
+            if (res.ok) { alert('პოსტი შენახულია !'); } 
+            else { alert('ავტორიზაცია აუცილებელია'); }
+        }
+
+        async function followUser(btnElement, username) {
+            let res = await fetch(`${api}/users/${username}/follow`, { ...reqOpts, method: 'POST' });
+            if (res.ok) { 
+                let d = await res.json();
+                if (d.following) {
+             
+                    btnElement.innerText = '✔ გამოწერილია';
+                    btnElement.style.color = 'green';
+                    btnElement.style.borderColor = 'green';
+                } else {
+             
+                    btnElement.innerText = '+ Follow';
+                    btnElement.style.color = '#555';
+                    btnElement.style.borderColor = '#ccc';
+                }
+            } 
+            else { alert('ავტორიზაცია აუცილებელია'); }
+        }
+        async function showUserStats(username) {
+            try {
+                let res = await fetch(`${api}/users/${username}`, reqOpts);
+                if (res.ok) {
+                    let d = await res.json();
+                    alert(`👤 ავტორი: ${d.username}\n\n📝 დაწერილი პოსტები: ${d.stats.posts_count}\n❤️ ჯამური მოწონებები: ${d.stats.total_likes}\n👥 გამომწერები (Followers): ${d.stats.followers_count}\nგამოწერილი ჰყავს: ${d.stats.following_count}`);
+                }
+            } catch (err) {
+                console.error("სტატისტიკის ჩატვირთვა ვერ მოხერხდა", err);
+            }
+        }
+
+        // კომენტარები
+        async function showComments(slug) {
+            let sec = document.getElementById(`com-sec-${slug}`);
+            if (sec.classList.contains('hide')) {
+                sec.classList.remove('hide');
+                loadComments(slug); 
+            } else {
+                sec.classList.add('hide');
+            }
+        }
+
+        async function loadComments(slug) {
+            let list = document.getElementById(`com-list-${slug}`);
+            list.innerHTML = '<span style="font-size:12px;">იტვირთება...</span>';
+            let res = await fetch(`${api}/posts/${slug}/comments`, reqOpts);
+            let d = await res.json();
+
+            if (d.length === 0) {
+                list.innerHTML = '<span style="font-size:12px;color:#777;">კომენტარები არ არის.</span>';
+                return;
+            }
+
+            let html = '';
+            d.forEach(c => {
+                html += renderComment(slug, c, false);
+                (c.replies || []).forEach(r => {
+                    html += renderComment(slug, r, true);
+                });
+            });
+            list.innerHTML = html;
+        }
+
+        function renderComment(slug, c, isReply) {
+            // spec: reply მხოლოდ 1 დონეზე — replies-ს ხელახლა reply ღილაკი აღარ ეძლევა
+            let replyBtnHtml = isReply ? '' : `<button class="btn-text" style="font-size: 11px; padding: 2px 6px;" onclick="toggleReplyBox(${c.id})">↩ პასუხი</button>`;
+            let replyBoxHtml = isReply ? '' : `
+                <div id="reply-box-${c.id}" class="hide" style="display: flex; gap: 5px; margin: 8px 0 0 0;">
+                    <input type="text" id="reply-val-${c.id}" placeholder="დაწერე პასუხი..." style="margin: 0; font-size: 13px;">
+                    <button class="btn-blue" style="font-size: 12px;" onclick="sendComment('${slug}', ${c.id})">გაგზავნა</button>
+                </div>
+            `;
+
+            return `
+                <div style="display: flex; gap: 10px; margin-bottom: 10px; margin-left: ${isReply ? '40px' : '0'}; background: ${isReply ? '#f1f1f1' : '#f9f9f9'}; padding: 10px; border-radius: 5px;">
+                    <img src="${escapeHtml(c.author.avatar_url)}" width="30" height="30" style="border-radius: 50%;">
+                    <div style="flex: 1;">
+                        <strong style="font-size: 13px;">${escapeHtml(c.author.username)}</strong>
+                        <div style="font-size: 13px; margin-top: 3px;">${escapeHtml(c.body)}</div>
+                        ${replyBtnHtml}
+                        ${replyBoxHtml}
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleReplyBox(commentId) {
+            document.getElementById(`reply-box-${commentId}`).classList.toggle('hide');
+        }
+
+        async function sendComment(slug, parentId = null) {
+            let inputId = parentId ? `reply-val-${parentId}` : `com-val-${slug}`;
+            let val = document.getElementById(inputId).value;
+            if (!val) return;
+
+            let payload = { body: val };
+            if (parentId) payload.parent_id = parentId;
+
+            let res = await fetch(`${api}/posts/${slug}/comments`, { ...reqOpts, method: 'POST', body: JSON.stringify(payload) });
+            if (res.ok) {
+                document.getElementById(inputId).value = '';
+                loadComments(slug);
+            } else { alert('ავტორიზაცია აუცილებელია'); }
+        }
+
+        // საიდბარი
+        async function getTrending() {
+            let area = document.getElementById('trend-area');
+            try {
+                let res = await fetch(`${api}/posts/trending`);
+                if (!res.ok) throw new Error(`სერვერმა დააბრუნა სტატუსი ${res.status}`);
+                let data = await res.json();
+
+                if (data.length === 0) return area.innerHTML = '<span style="font-size: 13px;">არ არის ტრენდული პოსტები</span>';
+
+                let html = '<ul style="margin:0; padding-left:20px;">';
+                data.forEach(p => {
+                    html += `<li style="margin-bottom: 10px; font-size: 14px;"><strong>${p.title}</strong><br><span style="font-size: 12px; color: #777;">${p.recent_likes} მოწონება</span></li>`;
+                });
+                area.innerHTML = html + '</ul>';
+            } catch (err) {
+                console.error('getTrending failed:', err);
+                area.innerHTML = `<span style="font-size: 13px; color: #c0392b;">ტრენდების ჩატვირთვა ვერ მოხერხდა — სერვერი (${api}) მიუწვდომელია. კონსოლი დეტალებისთვის.</span>`;
+            }
+        }
+
+        async function getTags() {
+            let area = document.getElementById('tags-area');
+            try {
+                let res = await fetch(`${api}/tags`, reqOpts);
+                if (!res.ok) throw new Error(`სერვერმა დააბრუნა სტატუსი ${res.status}`);
+                let tags = await res.json();
+
+                if (tags.length === 0) return area.innerHTML = '<span style="font-size: 13px;">თეგები არ არის</span>';
+
+                tags.forEach(t => { tagsCache[t.slug] = t.name; });
+
+                area.innerHTML = tags.map(t => {
+                    let followed = !!t.is_following;
+                    let label = followed ? '✔ გამოწერილია' : '＋ გამოწერა';
+                    let style = followed
+                        ? 'font-size: 11px; padding: 2px 6px; border: 1px solid green; color: green; border-radius: 12px; margin-left: 2px;'
+                        : 'font-size: 11px; padding: 2px 6px; border: 1px solid #ccc; border-radius: 12px; margin-left: 2px;';
+                    return `
+                        <span style="display: inline-flex; align-items: center; margin: 2px;">
+                            <span class="tag-style" style="margin: 0;" onclick="loadByTag('${t.slug}')">#${escapeHtml(t.name)}</span><button class="btn-text" style="${style}" title="თეგის გამოწერა" onclick="followTag('${t.slug}', this)">${label}</button>
+                        </span>
+                    `;
+                }).join(' ');
+            } catch (err) {
+                console.error('getTags failed:', err);
+                area.innerHTML = `<span style="font-size: 13px; color: #c0392b;">თეგების ჩატვირთვა ვერ მოხერხდა — სერვერი (${api}) მიუწვდომელია. კონსოლი დეტალებისთვის.</span>`;
+            }
+        }
+
+        async function followTag(slug, btnElement) {
+            let res = await fetch(`${api}/tags/${slug}/follow`, { ...reqOpts, method: 'POST' });
+            if (res.ok) {
+                let d = await res.json();
+                if (d.following) {
+                    btnElement.innerText = '✔ გამოწერილია';
+                    btnElement.style.color = 'green';
+                    btnElement.style.borderColor = 'green';
+                } else {
+                    btnElement.innerText = '＋ გამოწერა';
+                    btnElement.style.color = '#555';
+                    btnElement.style.borderColor = '#ccc';
+                }
+            } else {
+                alert('ავტორიზაცია აუცილებელია');
+            }
+        }
+
+        async function loadByTag(slug) {
+            let name = tagsCache[slug] || slug;
+            document.getElementById('feed-header').innerText = `თეგი: #${name}`;
+            let area = document.getElementById('posts-area');
+            area.innerHTML = '<p>იტვირთება...</p>';
+
+            let res;
+            try {
+                res = await fetch(`${api}/tags/${slug}/posts`, reqOpts);
+            } catch (err) {
+                console.error('loadByTag failed — ვერ დავუკავშირდით სერვერს', err);
+                area.innerHTML = `<div class="box" style="color:#c0392b;">სერვერთან კავშირი ვერ მოხერხდა.</div>`;
+                return;
+            }
+            if (!res.ok) {
+                area.innerHTML = '<div class="box">ამ თეგის პოსტების ჩატვირთვა ვერ მოხერხდა.</div>';
+                return;
+            }
+            let posts = await res.json();
+            area.innerHTML = '';
+
+            if (posts.length === 0) return area.innerHTML = '<div class="box">ამ თეგით პოსტები არ იძებნება.</div>';
+
+            posts.forEach(p => area.appendChild(renderPostCard(p)));
+        }
+
+        // გაშვება
+        async function init() {
+            await checkUser();
+            loadPosts('all');
+            getTrending();
+            getTags();
+        }
+        
+        init();
+    </script>
+</body>
+</html>
