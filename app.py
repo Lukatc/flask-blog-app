@@ -1,7 +1,6 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from flask import Flask, request, jsonify, send_from_directory
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
@@ -14,9 +13,10 @@ import bleach
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
-# სეკრეტ კოდი სესიისთვის (production-ში აუცილებლად დააყენეთ SECRET_KEY env-ვარიაბლით)
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'ragac-secret-key-12345')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///blog.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(BASE_DIR, 'blog.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -27,7 +27,7 @@ def unauthorized():
     return jsonify({'error': 'გთხოვთ, გაიაროთ ავტორიზაცია'}), 401
 
 
-# === ბაზის მოდელები ===
+# მოდელები
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -54,7 +54,6 @@ class User(db.Model, UserMixin):
             'avatar_url': self.avatar_url,
             'website': self.website
         }
-        # საკუთარ თავზე is_following არ სჭირდება; სხვისთვის ვამოწმებთ რეალურ სტატუსს
         if current_user.is_authenticated and current_user.id != self.id:
             d['is_following'] = Follow.query.filter_by(
                 follower_id=current_user.id, following_id=self.id
@@ -82,7 +81,6 @@ class Post(db.Model):
     likes = db.relationship('Like', backref='post', lazy=True, cascade='all, delete-orphan')
 
     def reading_time(self):
-        # spec: round(word_count / 200) წუთი
         words = len(self.body.split())
         return round(words / 200)
 
@@ -163,10 +161,8 @@ class TagFollow(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
-# === დამხმარე ფუნქციები ===
+# დამხმარე ფუნქციები
 
-# ფრონტენდი body_html-ს პირდაპირ innerHTML-ში სვამს, ამიტომ Markdown-იდან
-# გამოსული HTML აუცილებლად unsafe თეგებისგან (მაგ. <script>, onerror=) უნდა გაიწმინდოს
 ALLOWED_HTML_TAGS = [
     'p', 'br', 'strong', 'em', 'b', 'i', 'u', 's', 'a', 'ul', 'ol', 'li',
     'blockquote', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
@@ -182,8 +178,6 @@ def render_markdown_safe(text):
     return bleach.clean(raw_html, tags=ALLOWED_HTML_TAGS, attributes=ALLOWED_HTML_ATTRS, strip=True)
 
 def get_json_body():
-    """request.get_json() JSON body-ს გარეშე ან არასწორი Content-Type-ით 500-ს აგდებდა.
-    ეს ფუნქცია უსაფრთხოდ აბრუნებს dict-ს ან None-ს."""
     return request.get_json(silent=True)
 
 def create_slug(text):
@@ -198,7 +192,6 @@ def get_unique_slug(title):
     base = create_slug(title)
     s = base
     count = 1
-    # თუ ასეთი სლაგი უკვე არის ბაზაში, ვამატებთ ციფრს
     while Post.query.filter_by(slug=s).first():
         count += 1
         s = f"{base}-{count}"
@@ -212,10 +205,6 @@ def check_tag(name):
     return t
 
 def cleanup_orphan_tags(tags):
-    """თუ პოსტს ჩამოეშორა რომელიმე თეგი (რედაქტირებით ან პოსტის წაშლით) და ის თეგი
-    აღარცერთ სხვა პოსტს აღარ ეკუთვნის, თვითონ თეგიც უნდა წაიშალოს ბაზიდან — თორემ
-    სამუდამოდ "მკვდარი" დარჩება /api/tags სიაში, მიუხედავად იმისა, რომ არცერთი
-    პოსტი აღარ იყენებს მას."""
     changed = False
     for t in tags:
         if not t.posts:
@@ -226,7 +215,7 @@ def cleanup_orphan_tags(tags):
         db.session.commit()
 
 
-# === ავტორიზაცია ===
+# ავტორიზაცია
 
 @app.route('/api/register', methods=['POST'])
 def register():
@@ -247,8 +236,6 @@ def register():
     if len(p) < 6:
         return jsonify({'error': 'პაროლი უნდა იყოს მინიმუმ 6 სიმბოლო'}), 400
 
-    # იუზერნეიმი უნდა შემოწმდეს რეგისტრზე დამოუკიდებლად (case-insensitive), თორემ "userB"
-    # და "UserB" ორ სხვადასხვა ანგარიშად ჩაითვლება და login-ისას დაბნეულობას გამოიწვევს
     if User.query.filter(db.func.lower(User.username) == u.lower()).first():
         return jsonify({'error': 'ეს იუზერნეიმი უკვე არსებობს'}), 400
 
@@ -266,7 +253,7 @@ def register():
 
     db.session.add(new_user)
     db.session.commit()
-    
+
     return jsonify(new_user.to_dict()), 201
 
 @app.route('/api/login', methods=['POST'])
@@ -297,7 +284,7 @@ def check_auth():
     return jsonify({'error': 'არაავტორიზებული'}), 401
 
 
-# === პოსტების CRUD ===
+# პოსტების CRUD
 
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
@@ -317,7 +304,6 @@ def get_posts():
 def get_post(slug):
     p = Post.query.filter_by(slug=slug).first_or_404()
 
-    # draft (is_published=False) პოსტი მხოლოდ თავად ავტორმა უნდა ნახოს
     if not p.is_published:
         if not current_user.is_authenticated or current_user.id != p.user_id:
             return jsonify({'error': 'პოსტი ვერ მოიძებნა'}), 404
@@ -374,8 +360,6 @@ def update_post(slug):
     p.cover_image_url = data.get('cover_image_url', p.cover_image_url)
     p.is_published = data.get('is_published', p.is_published)
 
-    # ძველი თეგების სია ვინახავთ commit-მდე, რომ შემდეგ დავადგინოთ, რომელი
-    # თეგი დარჩა "პატრონის გარეშე" ამ პოსტიდან მოხსნის შემდეგ
     old_tags = list(p.tags)
     tags_changed = 'tags' in data
     if tags_changed:
@@ -397,8 +381,6 @@ def delete_post(slug):
 
     old_tags = list(p.tags)
 
-    # Bookmark-ს არ აქვს db.relationship post-თან (cascade ვერ მუშაობს), ამიტომ
-    # წაშლის გარეშე პოსტის წაშლის შემდეგ /api/bookmarks 500-ს დააგდებდა
     Bookmark.query.filter_by(post_id=p.id).delete()
 
     db.session.delete(p)
@@ -408,7 +390,7 @@ def delete_post(slug):
     return jsonify({'msg': 'წაიშალა'})
 
 
-# === ლაიქები და შენახვა ===
+# ლაიქები და შენახვა
 
 @app.route('/api/posts/<slug>/like', methods=['POST'])
 @login_required
@@ -424,7 +406,7 @@ def like_post(slug):
     new_like = Like(user_id=current_user.id, post_id=p.id)
     db.session.add(new_like)
     db.session.commit()
-    
+
     return jsonify({'liked': True, 'likes_count': len(p.likes)})
 
 @app.route('/api/posts/<slug>/bookmark', methods=['POST'])
@@ -451,13 +433,12 @@ def get_bookmarks():
     return jsonify(posts)
 
 
-# === ტრენდული პოსტები ===
+# ტრენდული პოსტები
 
 @app.route('/api/posts/trending', methods=['GET'])
 def get_trending():
     last_week = datetime.utcnow() - timedelta(days=7)
-    
-    # SQL join ლაიქების დასათვლელად ბოლო 7 დღეში
+
     res = db.session.query(Post, db.func.count(Like.id).label('recent_likes')) \
         .join(Like, Like.post_id == Post.id) \
         .filter(Like.created_at >= last_week, Post.is_published == True) \
@@ -474,7 +455,7 @@ def get_trending():
     return jsonify(trending)
 
 
-# === კომენტარები ===
+# კომენტარები
 
 @app.route('/api/posts/<slug>/comments', methods=['GET'])
 def get_comments(slug):
@@ -515,7 +496,7 @@ def add_comment(slug):
     return jsonify(new_comm.to_dict()), 201
 
 
-# === Follow & Feed ===
+# გამოწერა და feed
 
 @app.route('/api/users/<username>/follow', methods=['POST'])
 @login_required
@@ -543,7 +524,7 @@ def my_feed():
     return jsonify([p.to_dict(with_body=True) for p in feed_posts])
 
 
-# === თეგები ===
+# თეგები
 
 @app.route('/api/tags', methods=['GET'])
 def all_tags():
@@ -582,9 +563,6 @@ def follow_tag(slug):
 @app.route('/api/tags/feed', methods=['GET'])
 @login_required
 def tags_feed():
-    # /api/feed-ის ანალოგიურად, უბრალოდ Follow-ის ნაცვლად TagFollow-ზეა დაფუძნებული:
-    # აბრუნებს პოსტებს, რომლებსაც მიმაგრებული აქვთ მინიმუმ ერთი ისეთი თეგი,
-    # რომელსაც მიმდინარე მომხმარებელი გამოწერილი ჰყავს
     tag_ids = [tf.tag_id for tf in TagFollow.query.filter_by(user_id=current_user.id).all()]
     if not tag_ids:
         return jsonify([])
@@ -597,7 +575,7 @@ def tags_feed():
     return jsonify([p.to_dict(with_body=True) for p in feed_posts])
 
 
-# === მომხმარებლის პროფილი ===
+# მომხმარებლის პროფილი
 
 @app.route('/api/users/<username>', methods=['GET'])
 def user_profile(username):
@@ -621,8 +599,6 @@ def user_profile(username):
 def get_users_posts(username):
     u = User.query.filter_by(username=username).first_or_404()
 
-    # საკუთარი პროფილის ნახვისას ავტორმა თავისი დრაფტებიც (is_published=False) უნდა ნახოს,
-    # სხვისი პროფილის ნახვისას კი მხოლოდ გამოქვეყნებული პოსტები უნდა ჩანდეს
     is_owner = current_user.is_authenticated and current_user.id == u.id
     q = Post.query.filter_by(user_id=u.id)
     if not is_owner:
@@ -631,11 +607,13 @@ def get_users_posts(username):
     return jsonify([x.to_dict(with_body=True) for x in p])
 
 
-if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
-
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(BASE_DIR, 'index.html')
+
+
+with app.app_context():
+    db.create_all()
+
+if __name__ == '__main__':
+    app.run(debug=True)
