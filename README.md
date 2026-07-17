@@ -1,5 +1,7 @@
 # Social Blog Platform — Flask REST API
 
+🔗 **Live Site:** [https://lukatcpythonanywhere.pythonanywhere.com/](https://lukatcpythonanywhere.pythonanywhere.com/)
+
 ## Getting Started
 
 ```bash
